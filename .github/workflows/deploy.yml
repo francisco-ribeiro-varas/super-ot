@@ -1,4 +1,4 @@
-name: Deploy Django to EC2 (Ubuntu 20.04)
+name: Deploy Django to EC2
 
 on:
   push:
@@ -34,8 +34,10 @@ jobs:
           script: |
             set -e
 
+            # Navegar al directorio del proyecto
             cd /home/${{ secrets.USER }}/ot
 
+            # Crear archivo .env con las variables de GitHub Secrets
             cat <<EOT > .env
             DEBUG=${DEBUG}
             SECRET_KEY=${SECRET_KEY}
@@ -47,29 +49,36 @@ jobs:
             DB_PORT=${DB_PORT}
             EOT
 
-            # Ajuste para Ubuntu 20.04 (apt en lugar de dnf)
-            # Se asume que usas MariaDB/MySQL por el paquete original
-            sudo apt update
-            sudo apt install -y python3.11 python3.11-venv python3.11-dev libmariadb-dev pkg-config gcc
+            # Actualizar repositorios e instalar dependencias del sistema para Ubuntu 20.04
+            sudo apt-get update
+            sudo apt-get install -y software-properties-common
+            
+            # Agregar el PPA de deadsnakes para obtener Python 3.11 (no viene por defecto en 20.04)
+            sudo add-apt-repository ppa:deadsnakes/ppa -y
+            sudo apt-get update
 
-            # Asegurar que el venv use la versión correcta
+            # Instalar Python 3.11 y dependencias de desarrollo para base de datos
+            # Nota: libmariadb-dev es el equivalente a mariadb-devel
+            sudo apt-get install -y python3.11 python3.11-venv python3.11-dev libmariadb-dev pkg-config gcc
+
+            # Configurar el entorno virtual si no existe o si es de otra versión
             if [ ! -f "venv/bin/python3.11" ]; then
+              echo "Creando nuevo entorno virtual con Python 3.11..."
               rm -rf venv
               python3.11 -m venv venv
             fi
 
+            # Activar entorno virtual e instalar librerías de Python
             source venv/bin/activate
-
             pip install --upgrade pip
             pip install -r requirements.txt
 
-            # Aplica las migraciones
+            # Tareas de Django
             python manage.py migrate --noinput
-
-            # Recopila los archivos estáticos
             python manage.py collectstatic --noinput
 
-            # Reinicia Gunicorn
+            # Reiniciar el servidor de aplicaciones (Gunicorn)
+            # Asegúrate de que el servicio de gunicorn esté configurado en tu EC2
             sudo systemctl restart gunicorn
 
         env:
