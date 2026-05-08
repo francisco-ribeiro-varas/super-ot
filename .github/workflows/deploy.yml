@@ -37,7 +37,7 @@ jobs:
             # Navegar al directorio del proyecto
             cd /home/${{ secrets.USER }}/ot
 
-            # Crear archivo .env con las variables de GitHub Secrets
+            # Crear archivo .env
             cat <<EOT > .env
             DEBUG=${DEBUG}
             SECRET_KEY=${SECRET_KEY}
@@ -49,26 +49,19 @@ jobs:
             DB_PORT=${DB_PORT}
             EOT
 
-            # Actualizar repositorios e instalar dependencias del sistema para Ubuntu 20.04
+            # Actualizar e instalar paquetes nativos de Ubuntu 20.04 (Python 3.8)
             sudo apt-get update
-            sudo apt-get install -y software-properties-common
-            
-            # Agregar el PPA de deadsnakes para obtener Python 3.11 (no viene por defecto en 20.04)
-            sudo add-apt-repository ppa:deadsnakes/ppa -y
-            sudo apt-get update
+            sudo apt-get install -y python3-venv python3-dev libmariadb-dev pkg-config gcc
 
-            # Instalar Python 3.11 y dependencias de desarrollo para base de datos
-            # Nota: libmariadb-dev es el equivalente a mariadb-devel
-            sudo apt-get install -y python3.11 python3.11-venv python3.11-dev libmariadb-dev pkg-config gcc
-
-            # Configurar el entorno virtual si no existe o si es de otra versión
-            if [ ! -f "venv/bin/python3.11" ]; then
-              echo "Creando nuevo entorno virtual con Python 3.11..."
+            # Configurar el entorno virtual con la versión nativa (3.8)
+            # Si el venv existe y no es 3.8, lo recrea
+            if [ ! -f "venv/bin/python3" ]; then
+              echo "Creando entorno virtual nativo..."
               rm -rf venv
-              python3.11 -m venv venv
+              python3 -m venv venv
             fi
 
-            # Activar entorno virtual e instalar librerías de Python
+            # Activar e instalar dependencias
             source venv/bin/activate
             pip install --upgrade pip
             pip install -r requirements.txt
@@ -77,8 +70,7 @@ jobs:
             python manage.py migrate --noinput
             python manage.py collectstatic --noinput
 
-            # Reiniciar el servidor de aplicaciones (Gunicorn)
-            # Asegúrate de que el servicio de gunicorn esté configurado en tu EC2
+            # Reiniciar Gunicorn
             sudo systemctl restart gunicorn
 
         env:
