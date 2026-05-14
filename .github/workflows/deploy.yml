@@ -1,4 +1,4 @@
-name: Deploy Django to EC2 
+name: Deploy Django to EC2
 
 on:
   push:
@@ -34,10 +34,8 @@ jobs:
           script: |
             set -e
 
-            # Navegar al directorio del proyecto
             cd /home/${{ secrets.USER }}/ot
 
-            # Crear archivo .env
             cat <<EOT > .env
             DEBUG=${DEBUG}
             SECRET_KEY=${SECRET_KEY}
@@ -49,28 +47,25 @@ jobs:
             DB_PORT=${DB_PORT}
             EOT
 
-            # Actualizar e instalar paquetes nativos de Ubuntu 20.04 (Python 3.8)
-            sudo apt-get update
-            sudo apt-get install -y python3-venv python3-dev libmariadb-dev pkg-config gcc
+            sudo dnf install python3.11 python3.11-devel mariadb105-devel pkgconfig gcc -y
 
-            # Configurar el entorno virtual con la versión nativa (3.8)
-            # Si el venv existe y no es 3.8, lo recrea
-            if [ ! -f "venv/bin/python3" ]; then
-              echo "Creando entorno virtual nativo..."
+            if [ ! -f "venv/bin/python3.11" ]; then
               rm -rf venv
-              python3 -m venv venv
+              python3.11 -m venv venv
             fi
 
-            # Activar e instalar dependencias
             source venv/bin/activate
+
             pip install --upgrade pip
             pip install -r requirements.txt
 
-            # Tareas de Django
+            # Aplica las migraciones de base de datos
             python manage.py migrate --noinput
+
+            # Recopila los archivos estáticos para que Nginx los sirva
             python manage.py collectstatic --noinput
 
-            # Reiniciar Gunicorn
+            # Reinicia Gunicorn para cargar el nuevo código
             sudo systemctl restart gunicorn
 
         env:
